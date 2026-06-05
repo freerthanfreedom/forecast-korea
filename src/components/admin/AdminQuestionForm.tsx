@@ -162,7 +162,7 @@ export default function AdminQuestionForm({
           <Label>상태</Label>
           <Select
             value={form.status}
-            onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}
+            onValueChange={(v) => setForm((p) => ({ ...p, status: v as import('@/types').QuestionStatus }))}
           >
             <SelectTrigger>
               <SelectValue />
