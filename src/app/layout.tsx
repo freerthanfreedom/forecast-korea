@@ -10,6 +10,11 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  verification: {
+    other: {
+      'naver-site-verification': '1404ad6b5cb7f76526419913c2b4cdcd8cd1dc33',
+    },
+  },
   title: {
     default: APP_NAME,
     template: `%s | ${APP_NAME}`,
