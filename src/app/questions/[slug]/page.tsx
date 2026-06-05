@@ -12,6 +12,8 @@ import PredictionSlider from '@/components/prediction/PredictionSlider'
 import ForecastChart from '@/components/prediction/ForecastChart'
 import CommentBox from '@/components/comments/CommentBox'
 import AdSlot from '@/components/common/AdSlot'
+import ExpertPanel from '@/components/questions/ExpertPanel'
+import VoteGauge from '@/components/questions/VoteGauge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { Question, Comment, PredictionHistory } from '@/types'
@@ -211,6 +213,29 @@ export default async function QuestionDetailPage({ params }: PageProps) {
               </div>
             </CardContent>
           </Card>
+
+          {/* 찬반 게이지 */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">👤 집단 투표 현황</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <VoteGauge
+                probability={communityProbability}
+                predictionCount={probabilities.length}
+              />
+            </CardContent>
+          </Card>
+
+          {/* 전문가 판정 */}
+          {question.expert_pro && question.expert_con && (
+            <ExpertPanel
+              expertPro={question.expert_pro}
+              expertCon={question.expert_con}
+              expertName={question.expert_name}
+              expertTitle={question.expert_title}
+            />
+          )}
 
           {/* 예측 추이 차트 */}
           <Card>

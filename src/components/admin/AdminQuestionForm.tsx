@@ -48,6 +48,10 @@ export default function AdminQuestionForm({
       : '',
     is_featured: question?.is_featured || false,
     status: question?.status || 'open',
+    expert_pro: question?.expert_pro || '',
+    expert_con: question?.expert_con || '',
+    expert_name: question?.expert_name || '',
+    expert_title: question?.expert_title || '',
   })
 
   const handleTitleChange = (value: string) => {
@@ -79,6 +83,10 @@ export default function AdminQuestionForm({
         resolve_by: form.resolve_by ? new Date(form.resolve_by).toISOString() : null,
         is_featured: form.is_featured,
         status: form.status,
+        expert_pro: form.expert_pro || null,
+        expert_con: form.expert_con || null,
+        expert_name: form.expert_name || null,
+        expert_title: form.expert_title || null,
       }
 
       if (mode === 'create') {
@@ -217,6 +225,54 @@ export default function AdminQuestionForm({
             type="datetime-local"
             value={form.resolve_by}
             onChange={(e) => setForm((p) => ({ ...p, resolve_by: e.target.value }))}
+          />
+        </div>
+      </div>
+
+      {/* 전문가 판정 섹션 */}
+      <div className="border rounded-lg p-4 space-y-4 bg-purple-50/50">
+        <p className="text-sm font-semibold text-purple-800">⚖️ 전문가 판정 (선택)</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="expert_name">전문가 이름</Label>
+            <Input
+              id="expert_name"
+              value={form.expert_name}
+              onChange={(e) => setForm((p) => ({ ...p, expert_name: e.target.value }))}
+              placeholder="예: 김철수"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="expert_title">전문가 직함</Label>
+            <Input
+              id="expert_title"
+              value={form.expert_title}
+              onChange={(e) => setForm((p) => ({ ...p, expert_title: e.target.value }))}
+              placeholder="예: 경제학 박사"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="expert_pro">YES 측 전문가 의견</Label>
+          <Textarea
+            id="expert_pro"
+            value={form.expert_pro}
+            onChange={(e) => setForm((p) => ({ ...p, expert_pro: e.target.value }))}
+            placeholder="YES(찬성) 입장에서의 전문가 분석..."
+            rows={3}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="expert_con">NO 측 전문가 의견</Label>
+          <Textarea
+            id="expert_con"
+            value={form.expert_con}
+            onChange={(e) => setForm((p) => ({ ...p, expert_con: e.target.value }))}
+            placeholder="NO(반대) 입장에서의 전문가 분석..."
+            rows={3}
           />
         </div>
       </div>

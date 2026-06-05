@@ -39,6 +39,10 @@ export interface Question {
   is_featured: boolean
   view_count: number
   suggested_by: string | null
+  expert_pro: string | null
+  expert_con: string | null
+  expert_name: string | null
+  expert_title: string | null
   // joined
   category?: Category
   profiles?: Profile
