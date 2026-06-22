@@ -638,7 +638,6 @@ function startHand() {
 
   gs.currentBetToCall = BB_AMOUNT;
   gs.lastRaiseAmount = BB_AMOUNT;
-  gs.preflopStreetBet = BB_AMOUNT;
 
   // Deal hole cards
   gs.playerHole = [dealCard(), dealCard()];
@@ -651,10 +650,38 @@ function startHand() {
   updateUI();
 
   if (gs.actionSeat === 1) {
-    disableActions();
-    setTimeout(aiTakesAction, 900);
+    // AI is SB: check if AI is already all-in from posting blind
+    if (gs.aiStack === 0) {
+      disableActions();
+      setTimeout(() => {
+        gs.aiActed = true;
+        if (gs.playerStack === 0) {
+          runoutAndShowdown();
+        } else {
+          gs.actionSeat = 0;
+          enableActions();
+        }
+      }, 300);
+    } else {
+      disableActions();
+      setTimeout(aiTakesAction, 900);
+    }
   } else {
-    enableActions();
+    // Player is SB: check if player is already all-in from posting blind
+    if (gs.playerStack === 0) {
+      disableActions();
+      gs.playerActed = true;
+      setTimeout(() => {
+        if (gs.aiStack === 0) {
+          runoutAndShowdown();
+        } else {
+          gs.actionSeat = 1;
+          setTimeout(aiTakesAction, 900);
+        }
+      }, 300);
+    } else {
+      enableActions();
+    }
   }
 }
 
@@ -801,15 +828,11 @@ function enableActions() {
     btnCheck.className = 'btn btn-call';
   }
 
-  document.getElementById('btn-fold').disabled = false;
+  // Cannot fold when already all-in (stack=0)
+  document.getElementById('btn-fold').disabled = myStack <= 0;
   btnCheck.disabled = false;
   document.getElementById('btn-raise').disabled = myStack <= 0;
   document.getElementById('btn-allin').disabled = myStack <= 0;
-
-  if (myStack <= 0) {
-    document.getElementById('btn-allin').disabled = true;
-    document.getElementById('btn-raise').disabled = true;
-  }
 
   setTurnIndicator('Your turn');
 }
@@ -1322,6 +1345,11 @@ function computeAIAction() {
   const aiBet = gs.aiBet;
   const callAmount = gs.currentBetToCall - aiBet;
   const canCheck = callAmount <= 0;
+
+  // Already all-in: cannot fold or raise, just check/call
+  if (aiStack === 0) {
+    return { type: canCheck ? 'check' : 'call' };
+  }
 
   // Evaluate hand strength
   const allCards = [...gs.aiHole, ...gs.board];
