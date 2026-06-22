@@ -129,7 +129,7 @@
     align-items: center;
     gap: 6px;
   }
-  /* Fix 4: min-height so layout doesn't jump when board is empty */
+  /* min-height so layout doesn't jump when board is empty */
   #board-cards {
     min-height: 70px;
     display: flex;
@@ -269,7 +269,7 @@
   }
   #game-over-title { font-size: 26px; font-weight: bold; color: #ffd700; }
   #game-over-detail { font-size: 15px; color: #ddd; margin: 8px 0; }
-  /* Fix 3: highlight-card class applied to winning cards */
+  /* highlight-card class applied to winning cards */
   .highlight-card {
     outline: 3px solid #ffd700;
     box-shadow: 0 0 10px #ffd700, 0 2px 6px rgba(0,0,0,0.4);
@@ -430,7 +430,6 @@ function shuffle(deck) {
   return d;
 }
 
-// Fix 3: cardHTML now accepts an optional highlight flag
 function cardHTML(card, faceDown = false, highlight = false) {
   if (faceDown) {
     return `<div class="card hidden-card back"></div>`;
@@ -446,12 +445,10 @@ function cardHTML(card, faceDown = false, highlight = false) {
 // HAND EVALUATOR
 // ============================================================
 // Returns { rank, tiebreakers, name }
-// rank: 8=royal flush, 7=straight flush, 6=four of kind, 5=full house,
-//       4=flush, 3=straight, 2=three of kind, 1=two pair, 0=one pair, -1=high card
-// Wait, let's use 0-9 where 9=royal flush
+// rank: 9=royal flush, 8=straight flush, 7=four of kind, 6=full house,
+//       5=flush, 4=straight, 3=three of kind, 2=two pair, 1=one pair, 0=high card
 
 function evaluateHand(cards7) {
-  // Generate all C(7,5) = 21 combinations
   const best = getBestHand(cards7);
   return best;
 }
@@ -550,21 +547,19 @@ function evaluate5(cards) {
   return { rank: 0, tiebreakers: ranks, name: 'High Card' };
 }
 
-// Returns false if not straight, else returns high card value
-// Handles A-2-3-4-5 wheel (returns 5 as high)
+// Returns false if not straight, else returns high card value.
+// Handles A-2-3-4-5 wheel (returns 5 as high).
 function checkStraight(sortedRanks) {
-  // sortedRanks is descending, unique or not
   const unique = [...new Set(sortedRanks)].sort((a, b) => b - a);
   if (unique.length < 5) return false;
 
-  // Normal straight check
   if (unique[0] - unique[4] === 4) {
     return unique[0];
   }
 
   // Wheel: A-2-3-4-5
   if (unique[0] === 14 && unique[1] === 5 && unique[2] === 4 && unique[3] === 3 && unique[4] === 2) {
-    return 5; // high card is 5
+    return 5;
   }
 
   return false;
@@ -624,19 +619,14 @@ function startHand() {
   gs.roundName = 'PREFLOP';
   gs.handOver = false;
   gs.raiseOpen = false;
-  // Fix 6: track lastRaiseSize as the raise increment (not just BB)
   gs.lastRaiseAmount = BB_AMOUNT; // size of the last raise increment
-  gs.currentBetToCall = 0; // the amount a player needs to call (total bet)
+  gs.currentBetToCall = 0; // the total bet amount a player needs to match
   gs.playerActed = false;
   gs.aiActed = false;
-  // Fix 2: track who folded for card reveal
-  gs.foldedSeat = -1;
+  gs.foldedSeat = -1; // -1 = no fold, 0 = player folded, 1 = ai folded
 
   // In heads-up: dealer = SB, acts first preflop after blinds
-  // Player seat 0, AI seat 1
-  // dealerSeat: who is dealer this hand
-  // SB = dealer in heads-up
-  gs.sbSeat = gs.dealerSeat; // dealer = SB
+  gs.sbSeat = gs.dealerSeat; // dealer = SB in heads-up
   gs.bbSeat = 1 - gs.dealerSeat;
 
   // Post blinds
@@ -648,20 +638,19 @@ function startHand() {
 
   gs.currentBetToCall = BB_AMOUNT;
   gs.lastRaiseAmount = BB_AMOUNT;
-  gs.preflopStreetBet = BB_AMOUNT; // for raise min calc
+  gs.preflopStreetBet = BB_AMOUNT;
 
   // Deal hole cards
   gs.playerHole = [dealCard(), dealCard()];
   gs.aiHole = [dealCard(), dealCard()];
 
   // Preflop: SB acts first (in heads-up, dealer/SB acts first preflop)
-  gs.actionSeat = gs.sbSeat; // SB goes first preflop
+  gs.actionSeat = gs.sbSeat;
 
   hideResult();
   updateUI();
 
   if (gs.actionSeat === 1) {
-    // AI goes first
     disableActions();
     setTimeout(aiTakesAction, 900);
   } else {
@@ -699,7 +688,7 @@ function updateUI() {
   document.getElementById('player-bet-val').textContent = gs.playerBet;
   document.getElementById('ai-bet-val').textContent = gs.aiBet;
 
-  // Fix 1: Show dealer button (D), SB, BB badges
+  // Show dealer button (D), SB, BB badges
   const playerIsDealer = gs.dealerSeat === 0;
   const playerIsSB = gs.sbSeat === 0;
   const playerIsBB = gs.bbSeat === 0;
@@ -722,7 +711,7 @@ function updateUI() {
   renderPlayerCards();
   renderBoard();
 
-  // Show player hand name if we have board cards
+  // Show player hand name once board cards are out
   if (gs.board.length > 0 && gs.playerHole.length === 2) {
     const all = [...gs.playerHole, ...gs.board];
     if (all.length >= 5) {
@@ -739,9 +728,8 @@ function updateUI() {
 
 function renderAICards(highlightSet) {
   const el = document.getElementById('ai-cards');
-  // Fix 2: show AI cards only at showdown (hand over AND no fold)
-  // Fold endings hide the AI cards regardless of who folded
-  const showFaceUp = gs.handOver && gs.foldedSeat === -1;
+  // Show AI cards face-up at showdown or when AI folded (UX: reveal on fold)
+  const showFaceUp = gs.handOver && (gs.foldedSeat === -1 || gs.foldedSeat === 1);
   if (showFaceUp) {
     el.innerHTML = gs.aiHole.map((c, i) => {
       const hl = highlightSet ? highlightSet.ai[i] : false;
@@ -772,7 +760,6 @@ function setStatus(msg) {
   document.getElementById('status-msg').textContent = msg;
 }
 
-// Fix 7: set turn indicator message
 function setTurnIndicator(msg) {
   document.getElementById('turn-indicator').textContent = msg;
 }
@@ -824,7 +811,6 @@ function enableActions() {
     document.getElementById('btn-raise').disabled = true;
   }
 
-  // Fix 7: show whose turn it is
   setTurnIndicator('Your turn');
 }
 
@@ -834,7 +820,6 @@ function disableActions() {
   document.getElementById('btn-raise').disabled = true;
   document.getElementById('btn-allin').disabled = true;
   document.getElementById('ai-thinking').style.display = 'block';
-  // Fix 7: show AI turn
   setTurnIndicator("AI's turn");
 }
 
@@ -852,7 +837,7 @@ function showRaisePanel() {
   const myBet = gs.playerBet;
   const myStack = gs.playerStack;
 
-  // Fix 6: minRaise = currentBetToCall + max(BB, lastRaiseAmount)
+  // minRaise = currentBetToCall + max(BB, lastRaiseAmount)
   const minRaiseIncrement = Math.max(BB_AMOUNT, gs.lastRaiseAmount);
   const minRaise = gs.currentBetToCall + minRaiseIncrement; // total bet after raise
   const maxRaise = myBet + myStack; // total bet if all-in
@@ -888,89 +873,115 @@ function confirmRaise() {
   doAction(0, 'raise', totalBet);
 }
 
-function doAction(seat, action, raiseTotal) {
-  const isPlayer = seat === 0;
+// ============================================================
+// ACTION PRIMITIVES
+// ============================================================
+
+function doFold(isPlayer) {
+  const seat = isPlayer ? 0 : 1;
+  gs.foldedSeat = seat;
+  endHand(1 - seat, 'fold');
+}
+
+function doCall(isPlayer) {
   const myBet = isPlayer ? gs.playerBet : gs.aiBet;
   const myStack = isPlayer ? gs.playerStack : gs.aiStack;
   const callAmount = gs.currentBetToCall - myBet;
+  const actual = Math.min(callAmount, myStack);
+
+  if (isPlayer) {
+    gs.playerStack -= actual;
+    gs.playerBet += actual;
+  } else {
+    gs.aiStack -= actual;
+    gs.aiBet += actual;
+  }
+  gs.pot += actual;
+  setStatus(`${isPlayer ? 'You' : 'AI'} call${isPlayer ? '' : 's'} ${actual}`);
+}
+
+function doCheck(isPlayer) {
+  setStatus(`${isPlayer ? 'You' : 'AI'} check${isPlayer ? '' : 's'}`);
+}
+
+function doRaise(isPlayer, raiseTotal) {
+  const myBet = isPlayer ? gs.playerBet : gs.aiBet;
+  const myStack = isPlayer ? gs.playerStack : gs.aiStack;
+  const totalBet = Math.min(raiseTotal, myBet + myStack);
+  const additionalBet = totalBet - myBet;
+  const prevBet = gs.currentBetToCall;
+
+  gs.lastRaiseAmount = totalBet - prevBet; // track raise increment for min-raise enforcement
+
+  if (isPlayer) {
+    gs.playerStack -= additionalBet;
+    gs.playerBet += additionalBet;
+  } else {
+    gs.aiStack -= additionalBet;
+    gs.aiBet += additionalBet;
+  }
+  gs.pot += additionalBet;
+  gs.currentBetToCall = Math.max(gs.currentBetToCall, totalBet);
+  setStatus(`${isPlayer ? 'You' : 'AI'} raise${isPlayer ? '' : 's'} to ${gs.currentBetToCall}`);
+}
+
+function doAllin(isPlayer) {
+  const myBet = isPlayer ? gs.playerBet : gs.aiBet;
+  const myStack = isPlayer ? gs.playerStack : gs.aiStack;
+  const additionalBet = myStack;
+  const newTotal = myBet + additionalBet;
+
+  if (newTotal > gs.currentBetToCall) {
+    gs.lastRaiseAmount = Math.max(newTotal - gs.currentBetToCall, gs.lastRaiseAmount);
+    gs.currentBetToCall = newTotal;
+  }
+
+  if (isPlayer) {
+    gs.playerStack = 0;
+    gs.playerBet += additionalBet;
+  } else {
+    gs.aiStack = 0;
+    gs.aiBet += additionalBet;
+  }
+  gs.pot += additionalBet;
+  setStatus(`${isPlayer ? 'You' : 'AI'} go${isPlayer ? '' : 'es'} ALL-IN with ${newTotal}!`);
+}
+
+// Dispatcher: routes action to the appropriate primitive, then advances game state
+function doAction(seat, action, raiseTotal) {
+  const isPlayer = seat === 0;
+  const myBet = isPlayer ? gs.playerBet : gs.aiBet;
+  const callAmount = gs.currentBetToCall - myBet;
 
   if (action === 'fold') {
-    // Fix 2: record who folded before ending hand
-    gs.foldedSeat = seat;
-    endHand(1 - seat, 'fold');
+    doFold(isPlayer);
     return;
   }
 
-  if (action === 'check') {
-    if (callAmount > 0) {
-      // treat as call
-      action = 'call';
-    }
+  // Treat check-when-facing-bet as a call
+  if (action === 'check' && callAmount > 0) {
+    action = 'call';
   }
 
   if (action === 'call') {
-    const actual = Math.min(callAmount, myStack);
-    if (isPlayer) {
-      gs.playerStack -= actual;
-      gs.playerBet += actual;
-    } else {
-      gs.aiStack -= actual;
-      gs.aiBet += actual;
-    }
-    gs.pot += actual;
-    setStatus(`${isPlayer ? 'You' : 'AI'} call${isPlayer?'':'s'} ${actual}`);
-  }
-
-  if (action === 'check') {
-    setStatus(`${isPlayer ? 'You' : 'AI'} check${isPlayer?'':'s'}`);
-  }
-
-  if (action === 'raise') {
-    const totalBet = Math.min(raiseTotal, myBet + myStack);
-    const additionalBet = totalBet - myBet;
-    const prevBet = gs.currentBetToCall;
-    // Fix 6: store the raise increment
-    gs.lastRaiseAmount = totalBet - prevBet;
-    if (isPlayer) {
-      gs.playerStack -= additionalBet;
-      gs.playerBet += additionalBet;
-    } else {
-      gs.aiStack -= additionalBet;
-      gs.aiBet += additionalBet;
-    }
-    gs.pot += additionalBet;
-    gs.currentBetToCall = Math.max(gs.currentBetToCall, totalBet);
-    setStatus(`${isPlayer ? 'You' : 'AI'} raise${isPlayer?'':'s'} to ${gs.currentBetToCall}`);
-  }
-
-  if (action === 'allin') {
-    const additionalBet = myStack;
-    const newTotal = myBet + additionalBet;
-    if (newTotal > gs.currentBetToCall) {
-      // Fix 6: track raise increment for all-in re-raise
-      gs.lastRaiseAmount = Math.max(newTotal - gs.currentBetToCall, gs.lastRaiseAmount);
-      gs.currentBetToCall = newTotal;
-    }
-    if (isPlayer) {
-      gs.playerStack = 0;
-      gs.playerBet += additionalBet;
-    } else {
-      gs.aiStack = 0;
-      gs.aiBet += additionalBet;
-    }
-    gs.pot += additionalBet;
-    setStatus(`${isPlayer ? 'You' : 'AI'} go${isPlayer?'':'es'} ALL-IN with ${newTotal}!`);
+    doCall(isPlayer);
+  } else if (action === 'check') {
+    doCheck(isPlayer);
+  } else if (action === 'raise') {
+    doRaise(isPlayer, raiseTotal);
+  } else if (action === 'allin') {
+    doAllin(isPlayer);
   }
 
   updateUI();
 
-  // Check if both players all-in
+  // Both players all-in: run out the board and go to showdown
   if (gs.playerStack === 0 && gs.aiStack === 0) {
     runoutAndShowdown();
     return;
   }
 
-  // Check if opponent is all-in and we've called
+  // One player is all-in and the other has called (bets are equal or exceeded)
   if (!isPlayer && gs.playerStack === 0 && gs.playerBet >= gs.aiBet) {
     runoutAndShowdown();
     return;
@@ -980,41 +991,33 @@ function doAction(seat, action, raiseTotal) {
     return;
   }
 
-  // Advance action
   advanceAction(seat, action);
 }
 
 function advanceAction(actedSeat, action) {
   const otherSeat = 1 - actedSeat;
 
-  // Check if betting round is over
   const playerBet = gs.playerBet;
   const aiBet = gs.aiBet;
   const betsEqual = playerBet === aiBet;
 
-  // Track who has acted
   if (actedSeat === 0) gs.playerActed = true;
   else gs.aiActed = true;
 
-  // Check all-in states
   const playerAllIn = gs.playerStack === 0;
   const aiAllIn = gs.aiStack === 0;
   const bothActed = gs.playerActed && gs.aiActed;
 
-  // If bets are equal and both have acted (or action was check/call)
-  // Also advance if either side is all-in and both have acted
   if (bothActed && (betsEqual || playerAllIn || aiAllIn)) {
     advanceStreet();
     return;
   }
 
-  // If raise or allin, other player must act
   if (!betsEqual || !gs.playerActed || !gs.aiActed) {
     gs.actionSeat = otherSeat;
 
-    // Fix 7: preflop SB called (limped), BB can check or raise
     if (otherSeat === 0) {
-      // Check if this is the preflop BB getting option after SB limp
+      // Preflop BB option: SB limped, BB can check or raise
       const isPreflopBBOption = gs.roundName === 'PREFLOP' &&
         gs.bbSeat === 0 &&
         action === 'call' &&
@@ -1037,7 +1040,7 @@ function advanceAction(actedSeat, action) {
 }
 
 function advanceStreet() {
-  // Reset bets for new street (move to pot already done)
+  // Reset per-street bets (chips are already in the pot)
   gs.playerBet = 0;
   gs.aiBet = 0;
   gs.currentBetToCall = 0;
@@ -1061,11 +1064,9 @@ function advanceStreet() {
 
   updateUI();
 
-  // Post-flop: BB acts first (non-dealer)
-  // BB seat = bbSeat
+  // Post-flop: BB (non-dealer) acts first
   gs.actionSeat = gs.bbSeat;
 
-  // Fix 7: show whose turn it is for new street
   const actorName = gs.bbSeat === 0 ? 'Your' : "AI's";
   setStatus(`${gs.roundName} - ${actorName} turn`);
 
@@ -1078,7 +1079,7 @@ function advanceStreet() {
 }
 
 function runoutAndShowdown() {
-  // Deal remaining board cards
+  // Deal remaining board cards if needed (all-in before river)
   while (gs.board.length < 5) {
     gs.board.push(dealCard());
   }
@@ -1087,23 +1088,21 @@ function runoutAndShowdown() {
   setTimeout(doShowdown, 400);
 }
 
-// Fix 3: compute highlight sets for winning cards
+// Compute which hole/board cards belong to the winning 5-card hand (for highlights)
 function computeHighlightSets(playerEval, aiEval, winnerSeat) {
   // winnerSeat: 0 = player wins, 1 = ai wins, -1 = split
   const makeSet = () => ({ player: [false, false], ai: [false, false], board: [false, false, false, false, false] });
 
   function markCards(evalResult, isPlayer) {
     const set = makeSet();
-    const winningCards = evalResult.cards; // 5-card array
+    const winningCards = evalResult.cards;
     const winningStrs = winningCards.map(cardStr);
 
-    // Check hole cards
     const hole = isPlayer ? gs.playerHole : gs.aiHole;
     const holeKey = isPlayer ? 'player' : 'ai';
     hole.forEach((c, i) => {
       if (winningStrs.includes(cardStr(c))) set[holeKey][i] = true;
     });
-    // Check board
     gs.board.forEach((c, i) => {
       if (winningStrs.includes(cardStr(c))) set.board[i] = true;
     });
@@ -1112,10 +1111,9 @@ function computeHighlightSets(playerEval, aiEval, winnerSeat) {
 
   if (winnerSeat === 0) return markCards(playerEval, true);
   if (winnerSeat === 1) return markCards(aiEval, false);
-  // Split: highlight both
+  // Split: highlight both hands
   const ps = markCards(playerEval, true);
   const as = markCards(aiEval, false);
-  // Merge
   const merged = makeSet();
   merged.player = ps.player.map((v, i) => v || as.player[i]);
   merged.ai = ps.ai.map((v, i) => v || as.ai[i]);
@@ -1134,28 +1132,50 @@ function doShowdown() {
 
   const cmp = compareEval(playerEval, aiEval);
 
+  // Heads-up side pot calculation:
+  // Each player can only win up to the amount they themselves contributed per opponent.
+  // The "effective bet" is the lesser of the two contributions (= what both matched).
+  // Any excess from the larger contributor is returned to them unchanged.
+  const playerContrib = gs.playerStack_start - gs.playerStack; // total chips player put in this hand
+  const aiContrib     = gs.aiStack_start    - gs.aiStack;     // total chips AI put in this hand
+
+  const effectiveBet = Math.min(playerContrib, aiContrib);
+  const mainPot      = effectiveBet * 2;
+  const excess       = Math.abs(playerContrib - aiContrib);
+  const excessToPlayer = playerContrib > aiContrib; // true = player gets excess back
+
   let title, detail, color, winnerSeat;
+
   if (cmp > 0) {
-    const won = gs.pot;
-    gs.playerStack += won;
+    // Player wins main pot; excess (if any) goes back to whoever over-contributed
+    gs.playerStack += mainPot;
+    if (excessToPlayer) {
+      gs.playerStack += excess;
+    } else {
+      gs.aiStack += excess;
+    }
     gs.pot = 0;
     title = 'YOU WIN!';
-    detail = `You win the pot of ${won}`;
+    detail = `You win the pot of ${mainPot}${excess ? ` (+${excess} returned)` : ''}`;
     color = '#7fff7f';
     winnerSeat = 0;
   } else if (cmp < 0) {
-    const won = gs.pot;
-    gs.aiStack += won;
+    // AI wins main pot; excess returned appropriately
+    gs.aiStack += mainPot;
+    if (excessToPlayer) {
+      gs.playerStack += excess;
+    } else {
+      gs.aiStack += excess;
+    }
     gs.pot = 0;
     title = 'YOU LOSE';
-    detail = `AI wins the pot of ${won}`;
+    detail = `AI wins the pot of ${mainPot}${excess ? ` (+${excess} returned)` : ''}`;
     color = '#ff7f7f';
     winnerSeat = 1;
   } else {
-    // Fix 5: odd chip goes to SB (dealer) position
-    const half = Math.floor(gs.pot / 2);
-    const remainder = gs.pot % 2;
-    // SB gets the extra chip
+    // Split: main pot halved; odd chip goes to SB; excess returned
+    const half = Math.floor(mainPot / 2);
+    const remainder = mainPot % 2;
     if (gs.sbSeat === 0) {
       gs.playerStack += half + remainder;
       gs.aiStack += half;
@@ -1163,48 +1183,63 @@ function doShowdown() {
       gs.playerStack += half;
       gs.aiStack += half + remainder;
     }
+    if (excessToPlayer) {
+      gs.playerStack += excess;
+    } else {
+      gs.aiStack += excess;
+    }
     gs.pot = 0;
     title = 'SPLIT POT';
-    detail = `Pot split: ${half} each${remainder ? ` (+${remainder} to SB)` : ''}`;
+    detail = `Pot split: ${half} each${remainder ? ` (+${remainder} to SB)` : ''}${excess ? ` (+${excess} returned)` : ''}`;
     color = '#ffd700';
     winnerSeat = -1;
   }
 
   gs.handOver = true;
 
-  // Fix 3: compute highlight sets and render with highlights
   const hlSet = computeHighlightSets(playerEval, aiEval, winnerSeat);
 
   updateUI();
-  // Re-render cards with highlights after updateUI
+  // Re-render cards with highlights after updateUI resets them
   renderAICards(hlSet);
   renderPlayerCards(hlSet);
   renderBoard(hlSet);
 
   showResult(title, detail, `You: ${playerEval.name} | AI: ${aiEval.name}`, color);
 
-  // Check game over
   checkGameOver();
 }
 
 function endHand(winnerSeat, reason) {
   gs.handOver = true;
-  const won = gs.pot;
+
+  // Heads-up side pot: winner can only take up to what they matched
+  const playerContrib = gs.playerStack_start - gs.playerStack;
+  const aiContrib     = gs.aiStack_start    - gs.aiStack;
+  const effectiveBet  = Math.min(playerContrib, aiContrib);
+  const mainPot       = effectiveBet * 2;
+  const excess        = Math.abs(playerContrib - aiContrib);
+  const excessToPlayer = playerContrib > aiContrib;
+
   let title, detail, color;
   if (winnerSeat === 0) {
-    gs.playerStack += won;
+    gs.playerStack += mainPot;
+    if (excessToPlayer) gs.playerStack += excess;
+    else gs.aiStack += excess;
     gs.pot = 0;
     title = 'YOU WIN!';
-    detail = `AI folded. You win ${won}`;
+    detail = `AI folded. You win ${mainPot}${excess ? ` (+${excess} returned to AI)` : ''}`;
     color = '#7fff7f';
   } else {
-    gs.aiStack += won;
+    gs.aiStack += mainPot;
+    if (excessToPlayer) gs.playerStack += excess;
+    else gs.aiStack += excess;
     gs.pot = 0;
     title = 'YOU LOSE';
-    detail = `You folded. AI wins ${won}`;
+    detail = `You folded. AI wins ${mainPot}${excess ? ` (+${excess} returned)` : ''}`;
     color = '#ff7f7f';
   }
-  // Fix 2: updateUI will now show folded side's cards
+
   updateUI();
   showResult(title, detail, '', color);
   checkGameOver();
@@ -1233,7 +1268,7 @@ function showGameOver(playerWon) {
 
 function nextHand() {
   if (gs.gameOver) return;
-  gs.dealerSeat = 1 - gs.dealerSeat; // rotate dealer
+  gs.dealerSeat = 1 - gs.dealerSeat; // rotate dealer each hand
   startHand();
 }
 
@@ -1259,7 +1294,6 @@ function computeAIAction() {
   let strength = 0;
 
   if (gs.board.length === 0) {
-    // Preflop: rough strength from hole cards
     strength = preflopStrength(gs.aiHole);
   } else if (allCards.length >= 5) {
     const ev = evaluateHand(allCards);
@@ -1269,15 +1303,13 @@ function computeAIAction() {
   }
 
   const rand = Math.random();
-  const bluff = rand < 0.12; // 12% bluff chance
+  const bluff = rand < 0.12; // 12% bluff frequency
   const effectiveStrength = bluff ? Math.min(1, strength + 0.5) : strength;
 
-  // Pot odds
   const potOdds = gs.pot > 0 ? callAmount / (gs.pot + callAmount) : 0;
 
   if (canCheck) {
     if (effectiveStrength > 0.65 || (effectiveStrength > 0.4 && rand < 0.5)) {
-      // Bet/raise
       const betSize = computeAIBetSize(effectiveStrength);
       if (betSize > 0 && aiStack > 0) {
         const totalBet = aiBet + betSize;
@@ -1289,7 +1321,6 @@ function computeAIAction() {
     }
     return { type: 'check' };
   } else {
-    // Facing a bet
     if (effectiveStrength < 0.2 && !bluff) {
       if (callAmount > gs.pot * 0.5) {
         return { type: 'fold' };
@@ -1297,7 +1328,6 @@ function computeAIAction() {
     }
 
     if (effectiveStrength > 0.75) {
-      // Fix 6: AI re-raise also respects minRaise
       const minRaiseIncrement = Math.max(BB_AMOUNT, gs.lastRaiseAmount);
       const betSize = computeAIBetSize(effectiveStrength);
       const totalBet = Math.max(gs.currentBetToCall + minRaiseIncrement, aiBet + betSize);
@@ -1324,7 +1354,7 @@ function computeAIBetSize(strength) {
 }
 
 function handStrengthFromRank(rank) {
-  // rank 0-9
+  // rank 0-9: high card through royal flush
   const map = [0.05, 0.2, 0.4, 0.6, 0.75, 0.8, 0.88, 0.93, 0.97, 1.0];
   return map[rank] || 0;
 }
@@ -1341,8 +1371,8 @@ function preflopStrength(hole) {
   if (isPair) {
     if (high >= 13) return 0.95; // AA, KK
     if (high >= 11) return 0.85; // QQ, JJ
-    if (high >= 9) return 0.75;  // TT, 99
-    if (high >= 7) return 0.65;  // 88, 77
+    if (high >= 9)  return 0.75; // TT, 99
+    if (high >= 7)  return 0.65; // 88, 77
     return 0.5;
   }
 
