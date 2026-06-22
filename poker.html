@@ -1017,6 +1017,17 @@ function advanceAction(actedSeat, action) {
     gs.actionSeat = otherSeat;
 
     if (otherSeat === 0) {
+      // Player is already all-in (stack=0): skip player action, let AI act or runout
+      if (gs.playerStack === 0) {
+        if (!gs.aiActed) {
+          gs.actionSeat = 1;
+          disableActions();
+          setTimeout(aiTakesAction, 900);
+        } else {
+          advanceStreet();
+        }
+        return;
+      }
       // Preflop BB option: SB limped, BB can check or raise
       const isPreflopBBOption = gs.roundName === 'PREFLOP' &&
         gs.bbSeat === 0 &&
@@ -1071,8 +1082,31 @@ function advanceStreet() {
   setStatus(`${gs.roundName} - ${actorName} turn`);
 
   if (gs.actionSeat === 0) {
+    // Player is all-in: skip their action, give AI the turn (or runout if AI also all-in)
+    if (gs.playerStack === 0) {
+      if (gs.aiStack === 0) {
+        runoutAndShowdown();
+      } else {
+        gs.playerActed = true;
+        gs.actionSeat = 1;
+        disableActions();
+        setTimeout(aiTakesAction, 900);
+      }
+      return;
+    }
     enableActions();
   } else {
+    // AI is all-in: skip their action, give player the turn (or runout if player also all-in)
+    if (gs.aiStack === 0) {
+      if (gs.playerStack === 0) {
+        runoutAndShowdown();
+      } else {
+        gs.aiActed = true;
+        gs.actionSeat = 0;
+        enableActions();
+      }
+      return;
+    }
     disableActions();
     setTimeout(aiTakesAction, 900);
   }
@@ -1310,7 +1344,7 @@ function computeAIAction() {
 
   if (canCheck) {
     if (effectiveStrength > 0.65 || (effectiveStrength > 0.4 && rand < 0.5)) {
-      const betSize = computeAIBetSize(effectiveStrength);
+      const betSize = Math.max(computeAIBetSize(effectiveStrength), BB_AMOUNT);
       if (betSize > 0 && aiStack > 0) {
         const totalBet = aiBet + betSize;
         if (totalBet >= aiBet + aiStack) {
