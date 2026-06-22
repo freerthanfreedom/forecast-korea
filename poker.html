@@ -69,6 +69,7 @@
     gap: 16px;
     align-items: center;
     font-size: 13px;
+    flex-wrap: wrap;
   }
   #ai-stack-label { color: #aaa; font-size: 11px; }
   #ai-stack-val { color: #ffd700; font-weight: bold; }
@@ -102,6 +103,7 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     position: relative;
     user-select: none;
+    transition: outline 0.2s;
   }
   .card.red { color: #d00; }
   .card.black { color: #111; }
@@ -127,6 +129,15 @@
     align-items: center;
     gap: 6px;
   }
+  /* Fix 4: min-height so layout doesn't jump when board is empty */
+  #board-cards {
+    min-height: 70px;
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    align-items: center;
+  }
   #pot-display {
     font-size: 16px;
     font-weight: bold;
@@ -146,6 +157,7 @@
     gap: 16px;
     align-items: center;
     font-size: 13px;
+    flex-wrap: wrap;
   }
   #player-badge {
     font-size: 11px;
@@ -237,6 +249,15 @@
     color: #fa0;
     padding: 4px;
   }
+  /* Turn indicator */
+  #turn-indicator {
+    text-align: center;
+    font-size: 12px;
+    color: #7ff;
+    padding: 2px 0;
+    min-height: 18px;
+    font-weight: bold;
+  }
   /* Game over */
   #game-over-panel {
     display: none;
@@ -248,7 +269,12 @@
   }
   #game-over-title { font-size: 26px; font-weight: bold; color: #ffd700; }
   #game-over-detail { font-size: 15px; color: #ddd; margin: 8px 0; }
-  .highlight-card { outline: 3px solid #ffd700; border-radius: 6px; }
+  /* Fix 3: highlight-card class applied to winning cards */
+  .highlight-card {
+    outline: 3px solid #ffd700;
+    box-shadow: 0 0 10px #ffd700, 0 2px 6px rgba(0,0,0,0.4);
+    border-radius: 6px;
+  }
   .dealer-chip {
     display: inline-block;
     width: 20px; height: 20px;
@@ -259,6 +285,26 @@
     font-weight: bold;
     line-height: 20px;
     text-align: center;
+    margin-left: 4px;
+  }
+  .sb-chip {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #2255aa;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 4px;
+  }
+  .bb-chip {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #aa2222;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: bold;
     margin-left: 4px;
   }
 </style>
@@ -295,7 +341,7 @@
 
   <!-- Board Area -->
   <div class="panel" id="board-area">
-    <div class="cards-row" id="board-cards"></div>
+    <div id="board-cards"></div>
   </div>
 
   <!-- Player Area -->
@@ -324,7 +370,8 @@
     <button class="btn btn-new-game" onclick="newGame()">New Game</button>
   </div>
 
-  <!-- Status -->
+  <!-- Turn indicator + Status -->
+  <div id="turn-indicator"></div>
   <div id="status-msg"></div>
   <div id="ai-thinking">AI is thinking...</div>
 
@@ -383,14 +430,16 @@ function shuffle(deck) {
   return d;
 }
 
-function cardHTML(card, faceDown = false) {
+// Fix 3: cardHTML now accepts an optional highlight flag
+function cardHTML(card, faceDown = false, highlight = false) {
   if (faceDown) {
     return `<div class="card hidden-card back"></div>`;
   }
   const sc = SUIT_CLASS[card.suit];
   const sym = SUIT_SYMBOLS[card.suit];
   const r = card.rank === 'T' ? '10' : card.rank;
-  return `<div class="card ${sc}"><div class="card-rank">${r}</div><div class="card-suit">${sym}</div></div>`;
+  const hlClass = highlight ? ' highlight-card' : '';
+  return `<div class="card ${sc}${hlClass}"><div class="card-rank">${r}</div><div class="card-suit">${sym}</div></div>`;
 }
 
 // ============================================================
@@ -575,10 +624,13 @@ function startHand() {
   gs.roundName = 'PREFLOP';
   gs.handOver = false;
   gs.raiseOpen = false;
-  gs.lastRaiseAmount = BB_AMOUNT;
+  // Fix 6: track lastRaiseSize as the raise increment (not just BB)
+  gs.lastRaiseAmount = BB_AMOUNT; // size of the last raise increment
   gs.currentBetToCall = 0; // the amount a player needs to call (total bet)
   gs.playerActed = false;
   gs.aiActed = false;
+  // Fix 2: track who folded for card reveal
+  gs.foldedSeat = -1;
 
   // In heads-up: dealer = SB, acts first preflop after blinds
   // Player seat 0, AI seat 1
@@ -647,13 +699,23 @@ function updateUI() {
   document.getElementById('player-bet-val').textContent = gs.playerBet;
   document.getElementById('ai-bet-val').textContent = gs.aiBet;
 
-  // Position badges
-  const dealerName = gs.dealerSeat === 0 ? 'BTN/SB' : 'BB';
-  const aiDealerName = gs.dealerSeat === 1 ? 'BTN/SB' : 'BB';
-  document.getElementById('player-position-badge').innerHTML =
-    `<span style="font-size:11px;padding:2px 6px;border-radius:10px;background:${gs.dealerSeat===0?'#8b6914':'#2a5a2a'};color:#fff">${dealerName}</span>`;
-  document.getElementById('ai-position-badge').innerHTML =
-    `<span style="font-size:11px;padding:2px 6px;border-radius:10px;background:${gs.dealerSeat===1?'#8b6914':'#2a5a2a'};color:#fff">${aiDealerName}</span>`;
+  // Fix 1: Show dealer button (D), SB, BB badges
+  const playerIsDealer = gs.dealerSeat === 0;
+  const playerIsSB = gs.sbSeat === 0;
+  const playerIsBB = gs.bbSeat === 0;
+
+  let playerBadgeHTML = '';
+  if (playerIsDealer) playerBadgeHTML += `<span class="dealer-chip">D</span>`;
+  if (playerIsSB) playerBadgeHTML += `<span class="sb-chip">SB</span>`;
+  if (playerIsBB) playerBadgeHTML += `<span class="bb-chip">BB</span>`;
+
+  let aiBadgeHTML = '';
+  if (!playerIsDealer) aiBadgeHTML += `<span class="dealer-chip">D</span>`;
+  if (!playerIsSB) aiBadgeHTML += `<span class="sb-chip">SB</span>`;
+  if (!playerIsBB) aiBadgeHTML += `<span class="bb-chip">BB</span>`;
+
+  document.getElementById('player-position-badge').innerHTML = playerBadgeHTML;
+  document.getElementById('ai-position-badge').innerHTML = aiBadgeHTML;
 
   // Render cards
   renderAICards();
@@ -675,27 +737,44 @@ function updateUI() {
   document.getElementById('ai-hand-name').textContent = '';
 }
 
-function renderAICards() {
+function renderAICards(highlightSet) {
   const el = document.getElementById('ai-cards');
-  if (gs.handOver) {
-    el.innerHTML = gs.aiHole.map(c => cardHTML(c)).join('');
+  // Fix 2: show AI cards if hand over OR if AI folded (foldedSeat === 1)
+  // If player folded, show AI cards face down (winner's cards hidden)
+  const showFaceUp = gs.handOver || gs.foldedSeat === 0;
+  if (showFaceUp) {
+    el.innerHTML = gs.aiHole.map((c, i) => {
+      const hl = highlightSet ? highlightSet.ai[i] : false;
+      return cardHTML(c, false, hl);
+    }).join('');
   } else {
     el.innerHTML = gs.aiHole.map(() => cardHTML(null, true)).join('');
   }
 }
 
-function renderPlayerCards() {
+function renderPlayerCards(highlightSet) {
   const el = document.getElementById('player-cards');
-  el.innerHTML = gs.playerHole.map(c => cardHTML(c)).join('');
+  el.innerHTML = gs.playerHole.map((c, i) => {
+    const hl = highlightSet ? highlightSet.player[i] : false;
+    return cardHTML(c, false, hl);
+  }).join('');
 }
 
-function renderBoard() {
+function renderBoard(highlightSet) {
   const el = document.getElementById('board-cards');
-  el.innerHTML = gs.board.map(c => cardHTML(c)).join('');
+  el.innerHTML = gs.board.map((c, i) => {
+    const hl = highlightSet ? highlightSet.board[i] : false;
+    return cardHTML(c, false, hl);
+  }).join('');
 }
 
 function setStatus(msg) {
   document.getElementById('status-msg').textContent = msg;
+}
+
+// Fix 7: set turn indicator message
+function setTurnIndicator(msg) {
+  document.getElementById('turn-indicator').textContent = msg;
 }
 
 function hideResult() {
@@ -703,6 +782,7 @@ function hideResult() {
   document.getElementById('btn-next').style.display = 'none';
   document.getElementById('action-area').querySelector('#action-buttons').style.display = 'flex';
   document.getElementById('raise-panel').style.display = 'none';
+  setTurnIndicator('');
 }
 
 function showResult(title, detail, handsText, color) {
@@ -715,6 +795,7 @@ function showResult(title, detail, handsText, color) {
   document.getElementById('btn-next').style.display = 'block';
   document.getElementById('action-buttons').style.display = 'none';
   document.getElementById('raise-panel').style.display = 'none';
+  setTurnIndicator('');
 }
 
 function enableActions() {
@@ -742,6 +823,9 @@ function enableActions() {
     document.getElementById('btn-allin').disabled = true;
     document.getElementById('btn-raise').disabled = true;
   }
+
+  // Fix 7: show whose turn it is
+  setTurnIndicator('Your turn');
 }
 
 function disableActions() {
@@ -750,6 +834,8 @@ function disableActions() {
   document.getElementById('btn-raise').disabled = true;
   document.getElementById('btn-allin').disabled = true;
   document.getElementById('ai-thinking').style.display = 'block';
+  // Fix 7: show AI turn
+  setTurnIndicator("AI's turn");
 }
 
 // ============================================================
@@ -765,8 +851,10 @@ function showRaisePanel() {
   gs.raiseOpen = true;
   const myBet = gs.playerBet;
   const myStack = gs.playerStack;
-  const callAmount = gs.currentBetToCall - myBet;
-  const minRaise = gs.currentBetToCall + gs.lastRaiseAmount; // total bet after raise
+
+  // Fix 6: minRaise = currentBetToCall + max(BB, lastRaiseAmount)
+  const minRaiseIncrement = Math.max(BB_AMOUNT, gs.lastRaiseAmount);
+  const minRaise = gs.currentBetToCall + minRaiseIncrement; // total bet after raise
   const maxRaise = myBet + myStack; // total bet if all-in
 
   const sliderMin = Math.min(minRaise, maxRaise);
@@ -795,8 +883,6 @@ function cancelRaise() {
 function confirmRaise() {
   const slider = document.getElementById('raise-slider');
   const totalBet = parseInt(slider.value);
-  const myBet = gs.playerBet;
-  const toAdd = totalBet - myBet;
   gs.raiseOpen = false;
   document.getElementById('raise-panel').style.display = 'none';
   doAction(0, 'raise', totalBet);
@@ -809,6 +895,8 @@ function doAction(seat, action, raiseTotal) {
   const callAmount = gs.currentBetToCall - myBet;
 
   if (action === 'fold') {
+    // Fix 2: record who folded before ending hand
+    gs.foldedSeat = seat;
     endHand(1 - seat, 'fold');
     return;
   }
@@ -841,6 +929,7 @@ function doAction(seat, action, raiseTotal) {
     const totalBet = Math.min(raiseTotal, myBet + myStack);
     const additionalBet = totalBet - myBet;
     const prevBet = gs.currentBetToCall;
+    // Fix 6: store the raise increment
     gs.lastRaiseAmount = totalBet - prevBet;
     if (isPlayer) {
       gs.playerStack -= additionalBet;
@@ -858,6 +947,7 @@ function doAction(seat, action, raiseTotal) {
     const additionalBet = myStack;
     const newTotal = myBet + additionalBet;
     if (newTotal > gs.currentBetToCall) {
+      // Fix 6: track raise increment for all-in re-raise
       gs.lastRaiseAmount = Math.max(newTotal - gs.currentBetToCall, gs.lastRaiseAmount);
       gs.currentBetToCall = newTotal;
     }
@@ -902,17 +992,14 @@ function advanceAction(actedSeat, action) {
   const aiBet = gs.aiBet;
   const betsEqual = playerBet === aiBet;
 
-  // Street is over when:
-  // - both acted AND bets are equal (check-check or call)
-  // - or someone called a raise (bets equal after raise+call)
-
   // Track who has acted
   if (actedSeat === 0) gs.playerActed = true;
   else gs.aiActed = true;
 
   // If bets are equal and both have acted (or action was check/call)
   if (betsEqual && gs.playerActed && gs.aiActed) {
-    // Street over
+    // Fix 7: preflop SB limp (call) -> BB gets check/raise option
+    // This is already handled by advanceStreet since aiActed/playerActed both true
     advanceStreet();
     return;
   }
@@ -920,7 +1007,20 @@ function advanceAction(actedSeat, action) {
   // If raise or allin, other player must act
   if (!betsEqual || !gs.playerActed || !gs.aiActed) {
     gs.actionSeat = otherSeat;
+
+    // Fix 7: preflop SB called (limped), BB can check or raise
     if (otherSeat === 0) {
+      // Check if this is the preflop BB getting option after SB limp
+      const isPreflopBBOption = gs.roundName === 'PREFLOP' &&
+        gs.bbSeat === 0 &&
+        action === 'call' &&
+        gs.currentBetToCall === BB_AMOUNT &&
+        gs.playerBet === BB_AMOUNT &&
+        gs.aiBet === BB_AMOUNT &&
+        !gs.playerActed;
+      if (isPreflopBBOption) {
+        setStatus('SB called. You can check or raise (BB option).');
+      }
       enableActions();
     } else {
       disableActions();
@@ -961,7 +1061,9 @@ function advanceStreet() {
   // BB seat = bbSeat
   gs.actionSeat = gs.bbSeat;
 
-  setStatus(`${gs.roundName} - ${gs.bbSeat === 0 ? 'Your' : "AI's"} turn`);
+  // Fix 7: show whose turn it is for new street
+  const actorName = gs.bbSeat === 0 ? 'Your' : "AI's";
+  setStatus(`${gs.roundName} - ${actorName} turn`);
 
   if (gs.actionSeat === 0) {
     enableActions();
@@ -981,6 +1083,42 @@ function runoutAndShowdown() {
   setTimeout(doShowdown, 400);
 }
 
+// Fix 3: compute highlight sets for winning cards
+function computeHighlightSets(playerEval, aiEval, winnerSeat) {
+  // winnerSeat: 0 = player wins, 1 = ai wins, -1 = split
+  const makeSet = () => ({ player: [false, false], ai: [false, false], board: [false, false, false, false, false] });
+
+  function markCards(evalResult, isPlayer) {
+    const set = makeSet();
+    const winningCards = evalResult.cards; // 5-card array
+    const winningStrs = winningCards.map(cardStr);
+
+    // Check hole cards
+    const hole = isPlayer ? gs.playerHole : gs.aiHole;
+    const holeKey = isPlayer ? 'player' : 'ai';
+    hole.forEach((c, i) => {
+      if (winningStrs.includes(cardStr(c))) set[holeKey][i] = true;
+    });
+    // Check board
+    gs.board.forEach((c, i) => {
+      if (winningStrs.includes(cardStr(c))) set.board[i] = true;
+    });
+    return set;
+  }
+
+  if (winnerSeat === 0) return markCards(playerEval, true);
+  if (winnerSeat === 1) return markCards(aiEval, false);
+  // Split: highlight both
+  const ps = markCards(playerEval, true);
+  const as = markCards(aiEval, false);
+  // Merge
+  const merged = makeSet();
+  merged.player = ps.player.map((v, i) => v || as.player[i]);
+  merged.ai = ps.ai.map((v, i) => v || as.ai[i]);
+  merged.board = ps.board.map((v, i) => v || as.board[i]);
+  return merged;
+}
+
 function doShowdown() {
   const playerCards = [...gs.playerHole, ...gs.board];
   const aiCards = [...gs.aiHole, ...gs.board];
@@ -992,7 +1130,7 @@ function doShowdown() {
 
   const cmp = compareEval(playerEval, aiEval);
 
-  let title, detail, color;
+  let title, detail, color, winnerSeat;
   if (cmp > 0) {
     const won = gs.pot;
     gs.playerStack += won;
@@ -1000,6 +1138,7 @@ function doShowdown() {
     title = 'YOU WIN!';
     detail = `You win the pot of ${won}`;
     color = '#7fff7f';
+    winnerSeat = 0;
   } else if (cmp < 0) {
     const won = gs.pot;
     gs.aiStack += won;
@@ -1007,18 +1146,37 @@ function doShowdown() {
     title = 'YOU LOSE';
     detail = `AI wins the pot of ${won}`;
     color = '#ff7f7f';
+    winnerSeat = 1;
   } else {
+    // Fix 5: odd chip goes to SB (dealer) position
     const half = Math.floor(gs.pot / 2);
-    gs.playerStack += half;
-    gs.aiStack += gs.pot - half;
+    const remainder = gs.pot % 2;
+    // SB gets the extra chip
+    if (gs.sbSeat === 0) {
+      gs.playerStack += half + remainder;
+      gs.aiStack += half;
+    } else {
+      gs.playerStack += half;
+      gs.aiStack += half + remainder;
+    }
     gs.pot = 0;
     title = 'SPLIT POT';
-    detail = `Pot split: ${half} each`;
+    detail = `Pot split: ${half} each${remainder ? ` (+${remainder} to SB)` : ''}`;
     color = '#ffd700';
+    winnerSeat = -1;
   }
 
   gs.handOver = true;
+
+  // Fix 3: compute highlight sets and render with highlights
+  const hlSet = computeHighlightSets(playerEval, aiEval, winnerSeat);
+
   updateUI();
+  // Re-render cards with highlights after updateUI
+  renderAICards(hlSet);
+  renderPlayerCards(hlSet);
+  renderBoard(hlSet);
+
   showResult(title, detail, `You: ${playerEval.name} | AI: ${aiEval.name}`, color);
 
   // Check game over
@@ -1042,6 +1200,7 @@ function endHand(winnerSeat, reason) {
     detail = `You folded. AI wins ${won}`;
     color = '#ff7f7f';
   }
+  // Fix 2: updateUI will now show folded side's cards
   updateUI();
   showResult(title, detail, '', color);
   checkGameOver();
@@ -1134,9 +1293,10 @@ function computeAIAction() {
     }
 
     if (effectiveStrength > 0.75) {
-      // Re-raise
+      // Fix 6: AI re-raise also respects minRaise
+      const minRaiseIncrement = Math.max(BB_AMOUNT, gs.lastRaiseAmount);
       const betSize = computeAIBetSize(effectiveStrength);
-      const totalBet = Math.max(gs.currentBetToCall + gs.lastRaiseAmount, aiBet + betSize);
+      const totalBet = Math.max(gs.currentBetToCall + minRaiseIncrement, aiBet + betSize);
       if (totalBet >= aiBet + aiStack) {
         return { type: 'allin' };
       }
