@@ -665,6 +665,9 @@ function startHand() {
   } else {
     // Player is SB: check if player is already all-in from posting blind
     if (gs.playerStack === 0) {
+      // Reset button label so stale text from previous hand doesn't show
+      document.getElementById('btn-check').textContent = 'Check';
+      document.getElementById('btn-check').className = 'btn btn-check';
       disableActions();
       gs.playerActed = true;
       setTimeout(() => {
