@@ -380,7 +380,7 @@
   <div id="action-area">
     <div id="raise-panel">
       <div id="raise-amount-display">Raise: 0</div>
-      <input type="range" id="raise-slider" min="0" max="1000" step="5" value="0" oninput="updateRaiseDisplay()">
+      <input type="range" id="raise-slider" min="0" max="1000" step="1" value="0" oninput="updateRaiseDisplay()">
       <div id="raise-confirm-row">
         <button class="btn btn-raise" onclick="confirmRaise()">Raise</button>
         <button class="btn btn-cancel" onclick="cancelRaise()">Cancel</button>
@@ -1339,8 +1339,7 @@ function nextHand() {
 // ============================================================
 function aiTakesAction() {
   if (gs.handOver || gs.actionSeat !== 1) return;
-  // Keep "AI is thinking..." visible throughout computation
-  document.getElementById('ai-thinking').style.display = 'block';
+  // disableActions() already shows ai-thinking; hide it just before acting
   const action = computeAIAction();
   document.getElementById('ai-thinking').style.display = 'none';
   doAction(1, action.type, action.raiseTotal || 0);
