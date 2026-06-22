@@ -207,6 +207,7 @@
   .btn-call { background: #27ae60; color: #fff; }
   .btn-raise { background: #8e44ad; color: #fff; }
   .btn-allin { background: #e67e22; color: #fff; }
+  .btn-cancel { background: #555; color: #ccc; }
   .btn-next { background: #ffd700; color: #222; width: 100%; font-size: 16px; padding: 14px; }
   .btn-new-game { background: #27ae60; color: #fff; width: 100%; font-size: 16px; padding: 14px; }
   /* Raise slider */
@@ -382,7 +383,7 @@
       <input type="range" id="raise-slider" min="0" max="1000" value="0" oninput="updateRaiseDisplay()">
       <div id="raise-confirm-row">
         <button class="btn btn-raise" onclick="confirmRaise()">Raise</button>
-        <button class="btn btn-fold" onclick="cancelRaise()">Cancel</button>
+        <button class="btn btn-cancel" onclick="cancelRaise()">Cancel</button>
       </div>
     </div>
     <div id="action-buttons">
@@ -1295,6 +1296,11 @@ function endHand(winnerSeat, reason) {
     title = 'YOU LOSE';
     detail = `You folded. AI wins ${mainPot}${excess ? ` (+${excess} returned)` : ''}`;
     color = '#ff7f7f';
+  }
+
+  // Verify chip invariant (debug guard)
+  if (gs.playerStack + gs.aiStack !== TOTAL_CHIPS) {
+    console.warn(`Chip invariant violated: ${gs.playerStack}+${gs.aiStack}=${gs.playerStack+gs.aiStack} ≠ ${TOTAL_CHIPS}`);
   }
 
   updateUI();
