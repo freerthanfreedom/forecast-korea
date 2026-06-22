@@ -380,7 +380,7 @@
   <div id="action-area">
     <div id="raise-panel">
       <div id="raise-amount-display">Raise: 0</div>
-      <input type="range" id="raise-slider" min="0" max="1000" value="0" oninput="updateRaiseDisplay()">
+      <input type="range" id="raise-slider" min="0" max="1000" step="5" value="0" oninput="updateRaiseDisplay()">
       <div id="raise-confirm-row">
         <button class="btn btn-raise" onclick="confirmRaise()">Raise</button>
         <button class="btn btn-cancel" onclick="cancelRaise()">Cancel</button>
@@ -449,12 +449,7 @@ function cardHTML(card, faceDown = false, highlight = false) {
 // rank: 9=royal flush, 8=straight flush, 7=four of kind, 6=full house,
 //       5=flush, 4=straight, 3=three of kind, 2=two pair, 1=one pair, 0=high card
 
-function evaluateHand(cards7) {
-  const best = getBestHand(cards7);
-  return best;
-}
-
-function getBestHand(cards) {
+function evaluateHand(cards) {
   const combos = combinations(cards, 5);
   let best = null;
   for (const combo of combos) {
@@ -1255,6 +1250,10 @@ function doShowdown() {
 
   gs.handOver = true;
 
+  if (gs.playerStack + gs.aiStack !== TOTAL_CHIPS) {
+    console.warn(`Chip invariant violated after showdown: ${gs.playerStack}+${gs.aiStack}=${gs.playerStack+gs.aiStack} ≠ ${TOTAL_CHIPS}`);
+  }
+
   const hlSet = computeHighlightSets(playerEval, aiEval, winnerSeat);
 
   updateUI();
@@ -1339,10 +1338,11 @@ function nextHand() {
 // AI LOGIC
 // ============================================================
 function aiTakesAction() {
-  document.getElementById('ai-thinking').style.display = 'none';
   if (gs.handOver || gs.actionSeat !== 1) return;
-
+  // Keep "AI is thinking..." visible throughout computation
+  document.getElementById('ai-thinking').style.display = 'block';
   const action = computeAIAction();
+  document.getElementById('ai-thinking').style.display = 'none';
   doAction(1, action.type, action.raiseTotal || 0);
 }
 
