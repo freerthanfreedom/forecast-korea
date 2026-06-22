@@ -739,9 +739,9 @@ function updateUI() {
 
 function renderAICards(highlightSet) {
   const el = document.getElementById('ai-cards');
-  // Fix 2: show AI cards if hand over OR if AI folded (foldedSeat === 1)
-  // If player folded, show AI cards face down (winner's cards hidden)
-  const showFaceUp = gs.handOver || gs.foldedSeat === 0;
+  // Fix 2: show AI cards only at showdown (hand over AND no fold)
+  // Fold endings hide the AI cards regardless of who folded
+  const showFaceUp = gs.handOver && gs.foldedSeat === -1;
   if (showFaceUp) {
     el.innerHTML = gs.aiHole.map((c, i) => {
       const hl = highlightSet ? highlightSet.ai[i] : false;
@@ -996,10 +996,14 @@ function advanceAction(actedSeat, action) {
   if (actedSeat === 0) gs.playerActed = true;
   else gs.aiActed = true;
 
+  // Check all-in states
+  const playerAllIn = gs.playerStack === 0;
+  const aiAllIn = gs.aiStack === 0;
+  const bothActed = gs.playerActed && gs.aiActed;
+
   // If bets are equal and both have acted (or action was check/call)
-  if (betsEqual && gs.playerActed && gs.aiActed) {
-    // Fix 7: preflop SB limp (call) -> BB gets check/raise option
-    // This is already handled by advanceStreet since aiActed/playerActed both true
+  // Also advance if either side is all-in and both have acted
+  if (bothActed && (betsEqual || playerAllIn || aiAllIn)) {
     advanceStreet();
     return;
   }
