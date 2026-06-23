@@ -711,8 +711,10 @@ function updateUI() {
   document.getElementById('pot-display').textContent = gs.pot;
   document.getElementById('player-stack-val').textContent = gs.playerStack;
   document.getElementById('ai-stack-val').textContent = gs.aiStack;
-  document.getElementById('player-bet-val').textContent = gs.playerBet;
-  document.getElementById('ai-bet-val').textContent = gs.aiBet;
+  document.getElementById('player-bet-val').textContent =
+    (!gs.handOver && gs.playerStack === 0 && gs.playerBet === 0 && gs.pot > 0) ? 'ALL-IN' : gs.playerBet;
+  document.getElementById('ai-bet-val').textContent =
+    (!gs.handOver && gs.aiStack === 0 && gs.aiBet === 0 && gs.pot > 0) ? 'ALL-IN' : gs.aiBet;
 
   // Show dealer button (D), SB, BB badges
   const playerIsDealer = gs.dealerSeat === 0;
